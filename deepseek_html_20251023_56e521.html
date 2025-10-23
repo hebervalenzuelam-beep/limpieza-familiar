@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Limpieza Familiar Valenzuela</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            min-height: 100vh; 
+            padding: 20px;
+            color: #333;
+        }
+        .container { 
+            max-width: 400px; 
+            margin: 0 auto;
+        }
+        .card { 
+            background: white; 
+            border-radius: 20px; 
+            padding: 24px; 
+            margin-bottom: 20px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1); 
+            text-align: center; 
+        }
+        h1 { 
+            color: #1f2937; 
+            margin-bottom: 8px; 
+            font-size: 24px;
+        }
+        p { 
+            color: #6b7280; 
+            margin-bottom: 20px; 
+        }
+        .btn { 
+            background: linear-gradient(135deg, #4f46e5, #7c3aed); 
+            color: white; 
+            border: none; 
+            padding: 16px 24px; 
+            border-radius: 12px; 
+            font-size: 18px; 
+            width: 100%; 
+            margin: 10px 0; 
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .btn:active {
+            transform: scale(0.98);
+        }
+        .today { 
+            background: linear-gradient(135deg, #10b981, #059669); 
+            color: white; 
+        }
+        .today h2 {
+            margin-bottom: 15px;
+            font-size: 20px;
+        }
+        .person-name {
+            font-size: 28px; 
+            font-weight: bold; 
+            margin: 10px 0;
+        }
+        .turn-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        .turn-item:last-child {
+            border-bottom: none;
+        }
+        select, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-size: 16px;
+            font-family: inherit;
+        }
+        textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+        .alert {
+            padding: 12px;
+            border-radius: 8px;
+            margin: 15px 0;
+            display: none;
+        }
+        .alert.success {
+            background: #f0fdf4;
+            color: #065f46;
+            border: 2px solid #10b981;
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #ffffff;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 8px;
+        }
+        @keyframes spin { 
+            to { transform: rotate(360deg); } 
+        }
+        .footer {
+            text-align: center;
+            color: white;
+            margin-top: 30px;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="card">
+            <h1>🏠 Familia Valenzuela</h1>
+            <p>Sistema de Limpieza Compartida</p>
+        </div>
+
+        <!-- Turno de Hoy -->
+        <div class="card today">
+            <h2>📅 ¡Turno de Hoy!</h2>
+            <div class="person-name" id="persona-hoy">Liliana</div>
+            <div id="fecha-hoy">26 de oct. 2024</div>
+        </div>
+
+        <!-- Próximos Turnos -->
+        <div class="card">
+            <h3>👥 Próximos Turnos</h3>
+            <div id="proximos-turnos">
+                <!-- Se llena con JavaScript -->
+            </div>
+        </div>
+
+        <!-- Confirmar Limpieza -->
+        <div class="card">
+            <h2>✅ Confirmar Limpieza</h2>
+            
+            <select id="select-persona">
+                <option value="">Selecciona tu nombre</option>
+                <option value="Liliana">Liliana</option>
+                <option value="Brigith">Brigith</option>
+                <option value="Vilma">Vilma</option>
+                <option value="Eliset">Eliset</option>
+                <option value="Jessie">Jessie</option>
+            </select>
+
+            <select id="select-estado">
+                <option value="completa">✅ Limpieza completa</option>
+                <option value="parcial">⚠️ Limpieza parcial</option>
+                <option value="no">❌ No pude realizarla</option>
+            </select>
+
+            <textarea id="observaciones" placeholder="Observaciones (opcional)"></textarea>
+
+            <button class="btn" onclick="confirmarLimpieza()">
+                <span id="btn-text">📋 Confirmar Limpieza</span>
+            </button>
+
+            <div id="mensaje" class="alert success"></div>
+        </div>
+
+        <!-- Historial -->
+        <div class="card">
+            <h3>📊 Historial Reciente</h3>
+            <div id="historial">
+                <!-- Se llena con JavaScript -->
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>💙 Gracias por mantener limpio nuestro hogar</p>
+        </div>
+    </div>
+
+    <script>
+        // Datos de las personas
+        const personas = [
+            { nombre: 'Liliana', fechaInicio: new Date('2024-10-26') },
+            { nombre: 'Brigith', fechaInicio: new Date('2024-10-29') },
+            { nombre: 'Vilma', fechaInicio: new Date('2024-11-01') },
+            { nombre: 'Eliset', fechaInicio: new Date('2024-11-04') },
+            { nombre: 'Jessie', fechaInicio: new Date('2024-11-07') }
+        ];
+
+        // Cargar datos al iniciar
+        document.addEventListener('DOMContentLoaded', function() {
+            calcularTurnos();
+            cargarHistorial();
+        });
+
+        function calcularTurnos() {
+            const hoy = new Date();
+            const turnoHoy = personas.find(p => {
+                let fecha = new Date(p.fechaInicio);
+                while (fecha <= new Date('2024-12-31')) {
+                    if (fecha.toDateString() === hoy.toDateString()) {
+                        return true;
+                    }
+                    fecha.setDate(fecha.getDate() + 3);
+                }
+                return false;
+            });
+
+            if (turnoHoy) {
+                document.getElementById('persona-hoy').textContent = turnoHoy.nombre;
+                document.getElementById('fecha-hoy').textContent = hoy.toLocaleDateString('es-PE', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric'
+                });
+            }
+
+            // Mostrar próximos turnos
+            const proximosContainer = document.getElementById('proximos-turnos');
+            proximosContainer.innerHTML = '';
+
+            personas.forEach(persona => {
+                let fecha = new Date(persona.fechaInicio);
+                let encontrado = false;
+                
+                while (fecha <= new Date('2024-12-31') && !encontrado) {
+                    const diffTime = fecha - hoy;
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    
+                    if (diffDays > 0 && diffDays <= 15) {
+                        const turnoDiv = document.createElement('div');
+                        turnoDiv.className = 'turn-item';
+                        turnoDiv.innerHTML = `
+                            <span>${persona.nombre}</span>
+                            <span style="color: #4f46e5; font-weight: bold;">
+                                ${diffDays === 1 ? 'Mañana' : `En ${diffDays} días`}
+                            </span>
+                        `;
+                        proximosContainer.appendChild(turnoDiv);
+                        encontrado = true;
+                    }
+                    
+                    fecha.setDate(fecha.getDate() + 3);
+                }
+            });
+        }
+
+        function cargarHistorial() {
+            const historial = JSON.parse(localStorage.getItem('limpieza_historial') || '[]');
+            const container = document.getElementById('historial');
+            container.innerHTML = '';
+
+            if (historial.length === 0) {
+                container.innerHTML = '<p style="color: #6b7280; text-align: center;">Aún no hay confirmaciones</p>';
+                return;
+            }
+
+            historial.slice(0, 5).forEach(item => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'turn-item';
+                itemDiv.style.borderLeft = `4px solid ${
+                    item.estado === 'completa' ? '#10b981' : 
+                    item.estado === 'parcial' ? '#f59e0b' : '#ef4444'
+                }`;
+                itemDiv.style.padding = '12px';
+                itemDiv.style.margin = '8px 0';
+                itemDiv.style.background = '#f8fafc';
+                itemDiv.style.borderRadius = '8px';
+                
+                itemDiv.innerHTML = `
+                    <div style="flex: 1;">
+                        <div style="font-weight: bold;">${item.nombre}</div>
+                        <div style="color: #6b7280; font-size: 14px;">
+                            ${item.estado === 'completa' ? '✅ Completa' : 
+                              item.estado === 'parcial' ? '⚠️ Parcial' : '❌ No realizada'}
+                        </div>
+                        ${item.observaciones ? `<div style="color: #6b7280; font-size: 12px; margin-top: 4px;">💬 ${item.observaciones}</div>` : ''}
+                    </div>
+                    <div style="text-align: right; font-size: 12px; color: #9ca3af;">
+                        <div>${item.fecha}</div>
+                        <div>${item.hora}</div>
+                    </div>
+                `;
+                container.appendChild(itemDiv);
+            });
+        }
+
+        function confirmarLimpieza() {
+            const persona = document.getElementById('select-persona').value;
+            const estado = document.getElementById('select-estado').value;
+            const observaciones = document.getElementById('observaciones').value;
+            const btn = document.getElementById('btn-text');
+            const mensaje = document.getElementById('mensaje');
+
+            if (!persona) {
+                alert('Por favor selecciona tu nombre');
+                return;
+            }
+
+            // Mostrar loading
+            btn.innerHTML = '<div class="loading"></div> Enviando...';
+            document.querySelector('.btn').disabled = true;
+
+            setTimeout(() => {
+                // Guardar en localStorage
+                const ahora = new Date();
+                const confirmacion = {
+                    nombre: persona,
+                    estado: estado,
+                    observaciones: observaciones || 'Ninguna',
+                    fecha: ahora.toLocaleDateString('es-PE'),
+                    hora: ahora.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }),
+                    timestamp: ahora.getTime()
+                };
+
+                const historial = JSON.parse(localStorage.getItem('limpieza_historial') || '[]');
+                historial.unshift(confirmacion);
+                localStorage.setItem('limpieza_historial', JSON.stringify(historial));
+
+                // Mostrar mensaje de éxito
+                mensaje.style.display = 'block';
+                mensaje.textContent = '✅ ¡Confirmación registrada exitosamente! 🎉';
+                mensaje.className = 'alert success';
+
+                // Resetear formulario
+                btn.innerHTML = '📋 Confirmar Limpieza';
+                document.querySelector('.btn').disabled = false;
+                document.getElementById('select-persona').value = '';
+                document.getElementById('select-estado').value = 'completa';
+                document.getElementById('observaciones').value = '';
+
+                // Actualizar historial
+                cargarHistorial();
+
+                // Ocultar mensaje después de 5 segundos
+                setTimeout(() => {
+                    mensaje.style.display = 'none';
+                }, 5000);
+            }, 1500);
+        }
+    </script>
+</body>
+</html>
