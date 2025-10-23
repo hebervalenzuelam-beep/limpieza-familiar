@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Familia Valenzuela - Sistema de Limpieza</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+    <div id="app" class="p-4"></div>
+
+    <script>
+        // ⚠️ IMPORTANTE: Reemplaza esta URL con tu Google Apps Script URL
+        const SCRIPT_URL = 'https://script.google.com/macros/s/TU_SCRIPT_URL_AQUI/exec';
+        
+        const personas = [
+            { nombre: 'Liliana', fechaInicio: new Date('2025-10-23') },
+            { nombre: 'Brigith', fechaInicio: new Date('2025-10-26') },
+            { nombre: 'Vilma', fechaInicio: new Date('2025-10-29') },
+            { nombre: 'Eliset', fechaInicio: new Date('2025-11-01') },
+            { nombre: 'Jessie', fechaInicio: new Date('2025-11-04') }
+        ];
+
+        let state = {
+            selectedName: '',
+            status: 'completa',
+            observaciones: '',
+            loading: false,
+            loadingHistory: false,
+            success: false,
+            error: '',
+            currentTurn: null,
+            nextTurns: [],
+            confirmaciones: []
+        };
+
+        function calcularTurnos() {
+            const hoy = new Date();
+            hoy.setHours(0, 0, 0, 0);
+            
+            let turnosActuales = [];
+            let proximosTurnos = [];
+
+            personas.forEach(persona => {
+                let fecha = new Date(persona.fechaInicio);
+                
+                while (fecha <= new Date('2026-12-31')) {
+                    const diffTime = fecha - hoy;
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    
+                    if (diffDays === 0) {
+                        turnosActuales.push({
+                            nombre: persona.nombre,
+                            fecha: new Date(fecha)
+                        });
+                    } else if (diffDays > 0 && diffDays <= 15) {
+                        proximosTurnos.push({
+                            nombre: persona.nombre,
+                            fecha: new Date(fecha),
+                            dias: diffDays
+                        });
+                    }
+                    
+                    fecha.setDate(fecha.getDate() + 15);
+                }
+            });
+
+            proximosTurnos.sort((a, b) => a.dias - b.dias);
+            
+            state.currentTurn = turnosActuales.length > 0 ? turnosActuales[0] : null;
+            state.nextTurns = proximosTurnos.slice(0, 5);
+        }
+
+        function formatearFecha(fecha) {
+            if (typeof fecha === 'string') return fecha;
+            const opciones = { day: '2-digit', month: 'short', year: 'numeric' };
+            return fecha.toLocaleDateString('es-PE', opciones);
+        }
+
+        async function cargarHistorial() {
+            state.loadingHistory = true;
+            render();
+            
+            try {
+                const response = await fetch(`${SCRIPT_URL}?action=confirmaciones`);
+                const result = await response.json();
+                
+                if (result.data && Array.isArray(result.data)) {
+                    state.confirmaciones = result.data.slice(0, 20);
+                }
+            } catch (err) {
+                console.log('Error al cargar historial:', err);
+            } finally {
+                state.loadingHistory = false;
+                render();
+            }
+        }
+
+        async function handleSubmit(e) {
+            e.preventDefault();
+            
+            if (!state.selectedName) {
+                state.error = 'Por favor selecciona tu nombre';
+                render();
+                return;
+            }
+
+            state.loading = true;
+            state.error = '';
+            state.success = false;
+            render();
+
+            try {
+                const ahora = new Date();
+                const fecha = ahora.toLocaleDateString('es-PE');
+                const hora = ahora.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+                
+                const estadoTexto = state.status === 'completa' ? 'Limpieza completa' : 
+                                   state.status === 'parcial' ? 'Limpieza parcial' : 
+                                   'No realizada';
+
+                const params = new URLSearchParams({
+                    fecha: fecha,
+                    nombre: state.selectedName,
+                    estado: estadoTexto,
+                    hora: hora,
+                    observaciones: state.observaciones || 'Ninguna'
+                });
+
+                const response = await fetch(`${SCRIPT_URL}?${params.toString()}`);
+                const result = await response.json();
+                
+                if (result.result === 'success') {
+                    state.success = true;
+                    state.selectedName = '';
+                    state.observaciones = '';
+                    state.status = 'completa';
+                    render();
+                    
+                    setTimeout(() => {
+                        cargarHistorial();
+                        state.success = false;
+                        render();
+                    }, 2000);
+                } else {
+                    state.error = 'Error al guardar. Por favor intenta de nuevo.';
+                    render();
+                }
+
+            } catch (err) {
+                state.error = `Error de conexión: ${err.message}`;
+                console.error('Error completo:', err);
+                render();
+            } finally {
+                state.loading = false;
+                render();
+            }
+        }
+
+        function render() {
+            const app = document.getElementById('app');
+            app.innerHTML = `
+                <div class="max-w-2xl mx-auto">
+                    
+                    <!-- Header -->
+                    <div class="bg-white rounded-2xl shadow-lg p-6 mb-4">
+                        <div class="flex items-center justify-center gap-3 mb-2">
+                            <i data-lucide="home" class="w-8 h-8 text-indigo-600"></i>
+                            <h1 class="text-3xl font-bold text-gray-800">Familia Valenzuela</h1>
+                        </div>
+                        <p class="text-center text-gray-600">Sistema de Limpieza Compartida</p>
+                        <p class="text-center text-xs text-gray-400 mt-2">📊 Conectado a Google Sheets</p>
+                    </div>
+
+                    <!-- Turno de Hoy -->
+                    ${state.currentTurn ? `
+                    <div class="bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl shadow-lg p-6 mb-4 text-white">
+                        <div class="flex items-center gap-2 mb-2">
+                            <i data-lucide="alert-circle" class="w-6 h-6"></i>
+                            <h2 class="text-xl font-bold">¡Turno de Hoy!</h2>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-2xl font-bold">${state.currentTurn.nombre}</p>
+                                <p class="text-green-100">${formatearFecha(state.currentTurn.fecha)}</p>
+                            </div>
+                            <i data-lucide="calendar" class="w-12 h-12 opacity-50"></i>
+                        </div>
+                    </div>
+                    ` : ''}
+
+                    <!-- Próximos Turnos -->
+                    <div class="bg-white rounded-2xl shadow-lg p-6 mb-4">
+                        <div class="flex items-center gap-2 mb-4">
+                            <i data-lucide="users" class="w-5 h-5 text-indigo-600"></i>
+                            <h3 class="text-lg font-semibold text-gray-800">Próximos Turnos</h3>
+                        </div>
+                        <div class="space-y-2">
+                            ${state.nextTurns.length > 0 ? state.nextTurns.map(turno => `
+                                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                    <div>
+                                        <p class="font-medium text-gray-800">${turno.nombre}</p>
+                                        <p class="text-sm text-gray-600">${formatearFecha(turno.fecha)}</p>
+                                    </div>
+                                    <span class="text-sm font-semibold text-indigo-600">
+                                        ${turno.dias === 1 ? 'Mañana' : `En ${turno.dias} días`}
+                                    </span>
+                                </div>
+                            `).join('') : '<p class="text-center text-gray-500 py-4">No hay turnos próximos programados</p>'}
+                        </div>
+                    </div>
+
+                    <!-- Formulario -->
+                    <div class="bg-white rounded-2xl shadow-lg p-6 mb-4">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">✅ Confirmar Limpieza</h2>
+                        
+                        <form onsubmit="handleSubmit(event)" class="space-y-4">
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Tu nombre</label>
+                                <select 
+                                    value="${state.selectedName}"
+                                    onchange="state.selectedName = this.value; render();"
+                                    class="w-full p-3 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:ring focus:ring-indigo-200 transition"
+                                >
+                                    <option value="">Selecciona tu nombre</option>
+                                    ${personas.map(p => `<option value="${p.nombre}">${p.nombre}</option>`).join('')}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Estado de la limpieza</label>
+                                <div class="space-y-2">
+                                    ${[
+                                        { value: 'completa', label: '✅ Limpieza completa', color: '#10b981' },
+                                        { value: 'parcial', label: '⚠️ Limpieza parcial', color: '#f59e0b' },
+                                        { value: 'no', label: '❌ No pude realizarla', color: '#ef4444' }
+                                    ].map(option => `
+                                        <label class="flex items-center p-3 border-2 rounded-lg cursor-pointer hover:bg-gray-50 transition"
+                                            style="border-color: ${state.status === option.value ? option.color : '#e5e7eb'}">
+                                            <input
+                                                type="radio"
+                                                name="status"
+                                                value="${option.value}"
+                                                ${state.status === option.value ? 'checked' : ''}
+                                                onchange="state.status = this.value; render();"
+                                                class="w-4 h-4 mr-3"
+                                            />
+                                            <span class="font-medium">${option.label}</span>
+                                        </label>
+                                    `).join('')}
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Observaciones (opcional)</label>
+                                <textarea
+                                    value="${state.observaciones}"
+                                    oninput="state.observaciones = this.value;"
+                                    placeholder="Ej: Faltó limpiar el baño, necesitamos más productos, etc."
+                                    rows="3"
+                                    class="w-full p-3 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:ring focus:ring-indigo-200 transition"
+                                >${state.observaciones}</textarea>
+                            </div>
+
+                            ${state.error ? `
+                                <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4 text-red-700">
+                                    ${state.error}
+                                </div>
+                            ` : ''}
+
+                            ${state.success ? `
+                                <div class="bg-green-50 border-2 border-green-200 rounded-lg p-4 text-green-700 flex items-center gap-2">
+                                    <i data-lucide="check-circle" class="w-5 h-5"></i>
+                                    <span>¡Confirmación guardada en Google Sheets! 🎉</span>
+                                </div>
+                            ` : ''}
+
+                            <button
+                                type="submit"
+                                ${state.loading ? 'disabled' : ''}
+                                class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold py-4 px-6 rounded-xl hover:from-indigo-700 hover:to-purple-700 transform hover:scale-105 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            >
+                                ${state.loading ? `
+                                    <i data-lucide="clock" class="w-5 h-5 animate-spin"></i>
+                                    Guardando en Google Sheets...
+                                ` : `
+                                    <i data-lucide="check-circle" class="w-5 h-5"></i>
+                                    Confirmar Limpieza
+                                `}
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Historial -->
+                    <div class="bg-white rounded-2xl shadow-lg p-6 mb-4">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-lg font-semibold text-gray-800">📋 Historial Reciente</h3>
+                            <button
+                                onclick="cargarHistorial()"
+                                ${state.loadingHistory ? 'disabled' : ''}
+                                class="text-indigo-600 hover:text-indigo-800 flex items-center gap-1 text-sm"
+                            >
+                                <i data-lucide="refresh-cw" class="w-4 h-4 ${state.loadingHistory ? 'animate-spin' : ''}"></i>
+                                Actualizar
+                            </button>
+                        </div>
+                        
+                        ${state.loadingHistory ? `
+                            <div class="text-center py-8">
+                                <i data-lucide="refresh-cw" class="w-8 h-8 text-indigo-600 animate-spin mx-auto mb-2"></i>
+                                <p class="text-gray-500">Cargando historial...</p>
+                            </div>
+                        ` : state.confirmaciones.length > 0 ? `
+                            <div class="space-y-2">
+                                ${state.confirmaciones.map(conf => {
+                                    const estadoLower = String(conf.estado || '').toLowerCase();
+                                    const borderColor = estadoLower.includes('completa') ? '#10b981' : 
+                                                      estadoLower.includes('parcial') ? '#f59e0b' : '#ef4444';
+                                    
+                                    return `
+                                        <div class="p-3 bg-gray-50 rounded-lg border-l-4" style="border-color: ${borderColor}">
+                                            <div class="flex justify-between items-start">
+                                                <div>
+                                                    <p class="font-medium text-gray-800">${conf.nombre}</p>
+                                                    <p class="text-sm text-gray-600">${conf.estado}</p>
+                                                    ${conf.observaciones !== 'Ninguna' ? `
+                                                        <p class="text-sm text-gray-500 mt-1">💬 ${conf.observaciones}</p>
+                                                    ` : ''}
+                                                </div>
+                                                <div class="text-right">
+                                                    <p class="text-xs text-gray-500">${conf.fecha}</p>
+                                                    <p class="text-xs text-gray-500">${conf.hora}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        ` : '<p class="text-center text-gray-500 py-8">No hay confirmaciones registradas aún</p>'}
+                    </div>
+
+                    <!-- Footer -->
+                    <div class="text-center mt-6 text-gray-600 text-sm space-y-2">
+                        <p>💙 Gracias por mantener limpio nuestro hogar</p>
+                        <p class="text-xs text-gray-400">
+                            📊 Ver hoja completa: 
+                            <a href="https://docs.google.com/spreadsheets/d/1uDZ_5dh1faWrExhngA3m4ITZC-6idjwaZ7DonFyLo20/edit" 
+                               target="_blank" 
+                               class="text-indigo-600 hover:underline">
+                                Google Sheets
+                            </a>
+                        </p>
+                    </div>
+
+                </div>
+            `;
+
+            // Activar los iconos de Lucide
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+        }
+
+        // Inicializar
+        calcularTurnos();
+        render();
+        cargarHistorial();
+    </script>
+</body>
+</html>
